@@ -1,0 +1,57 @@
+version: '3'
+services:
+  postgres:
+    # postgree image found docker hub 
+    image: 'postgres:latest'
+  redis:
+    image: 'redis:latest'
+  nginx:
+    # this must always be running
+    # for example if our worker crashed it's okay
+    # because it might take consume a lot of cpu cycles
+    restart: always
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./nginx
+    ports:
+      # change the first port to whatever you want 
+      - '3050:80'
+  api:
+    build:
+      dockerfile: Dockerfile.dev
+      # This tells us which docker file we're reffering to 
+      context: ./server
+    volumes:
+      #inside this container don't try and modify the node_modules
+      - /app/node_modules
+      # any changes that are made in the server app are now changed in our container
+      - ./server:/app
+    environment:
+      - REDIS_HOST=redis
+      # This is the default port for Redis and postgress
+      - REDIS_PORT=6379
+      - PGUSER=postgres
+      - PGHOST=postgres
+      - PGDATABASE=postgres
+      - PGPASSWORD=postgres_password
+      - PGPORT=5432
+  client:
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./client
+    volumes:
+      # ensures node_modules folder does not get overwritten by any 
+      # node modules folder in our client
+      - /app/node_modules
+      # everything in app directory should be shared with folder in our container app
+      - ./client:/app
+  worker:
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./worker
+    volumes:
+      - /app/node_modules
+      - ./worker:/app
